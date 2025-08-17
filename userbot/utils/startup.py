@@ -134,6 +134,7 @@ async def load_plugins(folder, extfolder=None):
     files.sort()
     success = 0
     failure = []
+    LOGS.info(f"plugins to be loaded {files.join(', ')}")
     for name in files:
         with open(name) as f:
             path1 = Path(f.name)
