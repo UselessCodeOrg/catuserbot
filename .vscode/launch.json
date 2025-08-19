@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run userbot",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "userbot",
+            "justMyCode": false,
+            "console": "integratedTerminal"
+        }
+    ]
+}

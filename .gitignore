@@ -110,4 +110,7 @@ venv.bak/
 CatTgbot.session
 CatTgbot.session-journal
 xtraplugins/
-userbot/cache/ytsearch.json
+userbot/cache/
+temp/
+badcatext/
+catvc/
