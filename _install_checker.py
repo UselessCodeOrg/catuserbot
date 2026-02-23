@@ -1,10 +1,10 @@
 #this file is run using the venv created by uv
 import asyncio
 import logging
+import os
 import subprocess
 import sys
-
-from config import Development
+from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.sessions import StringSession, MemorySession
 from telethon.errors import (
@@ -13,6 +13,8 @@ from telethon.errors import (
     AccessTokenExpiredError,
     ChatWriteForbiddenError,
 )
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("Stage 2")
@@ -108,16 +110,16 @@ def is_database_operational(db_name="catuserbot", user="postgres") -> bool:
 
 async def main():
     logger.info("main")
-    APP_ID         = Development.APP_ID
-    API_HASH       = Development.API_HASH
-    STRING_SESSION = Development.STRING_SESSION
-    BOT_TOKEN      = Development.TG_BOT_TOKEN
-    GROUP_ID       = Development.PRIVATE_GROUP_BOT_API_ID
+    APP_ID         = os.getenv("APP_ID")
+    API_HASH       = os.getenv("API_HASH")
+    STRING_SESSION = os.getenv("STRING_SESSION")
+    BOT_TOKEN      = os.getenv("TG_BOT_TOKEN")
+    # GROUP_ID       = Development.PRIVATE_GROUP_BOT_API_ID
 
     checks = {
         "User session":await telegram_user_check(STRING_SESSION, APP_ID, API_HASH),
         "Bot token":await telegram_bot_check(BOT_TOKEN, APP_ID, API_HASH),
-        "Bot group access":await check_bot_group_access(BOT_TOKEN, APP_ID, API_HASH, GROUP_ID),
+        # "Bot group access":await check_bot_group_access(BOT_TOKEN, APP_ID, API_HASH, GROUP_ID),
         "Database":is_database_operational(),
     }
 
@@ -131,3 +133,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+#End of the universe :)

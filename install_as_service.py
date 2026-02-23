@@ -103,9 +103,6 @@ def is_database_operational(db_name="catuserbot", user="postgres"):
         return False
 
 
-
-
-
 # Stages = = = = =
 def stage_1():
     """Installing the necessary things"""
@@ -212,3 +209,5 @@ if __name__ == "__main__":
     if os.getegid() != 0:
         print("Uses sudo to run this script, this script makes a new process thats why sudo permission is essential. Check install_as_service.py and _install_checker.py is you are concerned about security. Thank you!")
     main()
+
+#End of the universe :)
