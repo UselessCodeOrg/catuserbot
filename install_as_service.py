@@ -18,10 +18,11 @@ UV_BIN_DIR = Path.home() / ".local" / "bin"
 SUBPROCESS_ENV = {**os.environ, "PATH": f"{UV_BIN_DIR}:{os.environ.get('PATH', '')}"}
 
 COMMANDS_STAGE_1 = [
-    "curl -LsSf https://astral.sh/uv/install.sh | sh",
-    "UV_PYTHON_INSTALL_DIR=/opt/uv-python uv venv --python 3.11",
-    "uv pip install -r requirements.txt",
-    "apt-get install -y postgresql postgresql-contrib",
+    (["chmod", "+x", "uv-installer.sh"], None),
+    (["./uv-installer.sh"], None),
+    (["uv", "venv", "--python", "3.11"], {"UV_PYTHON_INSTALL_DIR": "/opt/uv-python"}),
+    (["uv", "pip", "install", "-r", "requirements.txt"], {"UV_PYTHON_INSTALL_DIR": "/opt/uv-python"}),
+    (["apt-get", "install", "-y", "postgresql", "postgresql-contrib"], None),
 ]
 
 COMMANDS_STAGE_3 = [
@@ -33,58 +34,83 @@ COMMANDS_STAGE_3 = [
 
 
 # Helper functions = = = = =
-def setup_database(db_name="catuserbot", user="postgres", password="pswd"):
-    """Create the database"""
+def setup_database(db_name="catuserbot", user="postgres", env_file=".env"):
+    """Create database"""
     try:
-        subprocess.run(
-            f'''sudo -u postgres psql -c "ALTER USER {user} WITH PASSWORD \'{password}\';" ''',
-            shell=True,
-            check=True,
-        )
-
-        # Check if DB already exists
         result = subprocess.run(
-            f'''sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname=\'{db_name}\'" ''',
-            shell=True,
+            ["sudo", "-u", "postgres", "psql", "-tAc",
+             f"SELECT 1 FROM pg_database WHERE datname='{db_name}';"],
             check=True,
             capture_output=True,
-            text=True,
+            text=True
         )
         db_exists = result.stdout.strip() == "1"
 
         if db_exists:
-            print(f"\nDatabase \'{db_name}\' already exists.")
+            print(f"\nDatabase '{db_name}' already exists.")
             print("  [1] Keep existing database and continue")
             print("  [2] Drop and recreate (ALL DATA WILL BE LOST)")
             choice = input("Enter choice (1/2): ").strip()
 
             if choice == "2":
-                confirm = input(f"Are you sure you want to delete \'{db_name}\'? Type YES to confirm: ").strip()
-                if confirm == "YES":
+                confirm = input(f"Are you sure you want to delete '{db_name}'? Type YES to confirm: ").strip()
+                if confirm.lower() == "yes":
+                    password = input(f"Enter new password for user '{user}': ").strip()
                     subprocess.run(
-                        f"sudo -u postgres dropdb {db_name}",
-                        shell=True,
-                        check=True,
-                    )
+                        ["sudo", "-u", "postgres", "dropdb", db_name], 
+                        check=True
+                        )
                     logger.info("Dropped existing database '%s'.", db_name)
+                    subprocess.run(
+                        ["sudo", "-u", "postgres", "psql", "-c", f"ALTER USER {user} WITH PASSWORD '{password}';"],
+                        check=True
+                    )
+                    subprocess.run(["sudo", "-u", "postgres", "createdb", db_name, "-O", user], check=True)
+                    logger.info("Database '%s' recreated with new password.", db_name)
                 else:
-                    logger.info("Drop cancelled. Continuing with existing database.")
-                    return
+                    logger.info("Drop cancelled. Keeping existing database.")
+                    password = input(f"Enter current password for user '{user}': ").strip()
             else:
-                logger.info("Keeping existing database '%s'.", db_name)
-                return
+                password = input(f"Enter current password for user '{user}': ").strip()
+                subprocess.run(
+                    ["sudo", "-u", "postgres", "psql", "-c", f"ALTER USER {user} WITH PASSWORD '{password}';"],
+                    check=True
+                )
+                logger.info("Keeping existing database '%s' with updated password.", db_name)
 
-        subprocess.run(
-            f"sudo -u postgres createdb {db_name} -O {user}",
-            shell=True,
-            check=True,
-        )
-        logger.info("Database '%s' created.", db_name)
+        else:
+            password = input(f"Enter password for new user '{user}': ").strip()
+            subprocess.run(
+                ["sudo", "-u", "postgres", "psql", "-c", f"ALTER USER {user} WITH PASSWORD '{password}';"],
+                check=True
+            )
+            subprocess.run(["sudo", "-u", "postgres", "createdb", db_name, "-O", user], check=True)
+            logger.info("Database '%s' created with user '%s'.", db_name, user)
+
+        db_url = f"postgresql://{user}:{password}@localhost:5432/{db_name}"
+
+        if os.path.exists(env_file):
+            with open(env_file, "r") as f:
+                lines = f.readlines()
+            with open(env_file, "w") as f:
+                updated = False
+                for line in lines:
+                    if line.startswith("DATABASE_URL = "):
+                        f.write(f"DATABASE_URL = \"{db_url}\"\n")
+                        updated = True
+                    else:
+                        f.write(line)
+                if not updated:
+                    f.write(f"DATABASE_URL = \"{db_url}\"\n")
+        else:
+            raise FileNotFoundError(".env file dosent exists")
+
+        logger.info("Database URL updated in '%s'.", env_file)
+        logger.info(f"\nDatabase URL: {db_url}")
 
     except subprocess.CalledProcessError as e:
         logger.error("Database setup failed: %s", e, exc_info=True)
         raise
-
 
 def is_database_operational(db_name="catuserbot", user="postgres"):
     try:
@@ -106,16 +132,18 @@ def is_database_operational(db_name="catuserbot", user="postgres"):
 # Stages = = = = =
 def stage_1():
     """Installing the necessary things"""
-    for cmd in COMMANDS_STAGE_1:
+    for cmd, env_vars in COMMANDS_STAGE_1:
+        env = SUBPROCESS_ENV.copy()
+        if env_vars:
+            env.update(env_vars)
         logger.info("Running: %s", cmd)
         try:
             result = subprocess.run(
                 cmd,
-                shell=True,
                 capture_output=True,
                 text=True,
                 check=True,
-                env=SUBPROCESS_ENV,  # ensures uv binary is findable after install
+                env=env,
             )
             if result.stdout:
                 logger.info(result.stdout)
@@ -148,9 +176,7 @@ def stage_3():
 
     current_file = Path(__file__)
     catuserbot_path = current_file.parent
-    userbot_path = catuserbot_path / "userbot"
     venv_python_path = catuserbot_path / ".venv" / "bin" / "python3"
-    catuserbot_bin_path = catuserbot_path / "bin"
     service_file = f"""
 [Unit]
 Description="A simple Telegram userbot based on Telethon "
@@ -176,20 +202,18 @@ WantedBy=multi-user.target
     file.close()
 
     subprocess.run(
-        f"chown -R {user}:{user} {str(catuserbot_path/".venv")}",
-        shell = True,
-        check = True,
-        text = True
-        )
+        ["chown", "-R", f"{user}:{user}", str(catuserbot_path / ".venv")],
+        check=True,
+        text=True
+    )
 
     for cmd in COMMANDS_STAGE_3:
         logger.info("Running: %s", cmd)
         try:
             subprocess.run(
-                cmd,
+                cmd.split(),
                 check=True,
                 text=True,
-                shell=True
             )
         except subprocess.CalledProcessError as e:
             logger.error("Command failed: %s\n%s", cmd, e.stderr, exc_info=True)
@@ -207,7 +231,8 @@ def main():
 # Entry point
 if __name__ == "__main__":
     if os.getegid() != 0:
-        print("Uses sudo to run this script, this script makes a new process thats why sudo permission is essential. Check install_as_service.py and _install_checker.py is you are concerned about security. Thank you!")
-    main()
+        print("Use sudo to run this script,\nthis script makes a new service thats why sudo permission is essential.\nCheck install_as_service.py and _install_checker.py if you are concerned about security.\nThank you!")
+    else:
+        main()
 
 #End of the universe :)
