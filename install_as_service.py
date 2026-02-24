@@ -25,6 +25,11 @@ COMMANDS_STAGE_1 = [
     (["apt-get", "install", "-y", "postgresql", "postgresql-contrib"], None),
 ]
 
+#not installing venv twice
+if Path(".venv").exists():
+    for i in range(3):
+        COMMANDS_STAGE_1.pop(0)
+
 COMMANDS_STAGE_3 = [
     "systemctl enable catuserbot.service",
     "systemctl start catuserbot.service",
