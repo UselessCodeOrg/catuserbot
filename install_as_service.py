@@ -3,6 +3,7 @@ import os
 import pwd
 from pathlib import Path
 import subprocess
+import sys
 
 # Logger = = = = =
 logger = logging.getLogger("Service Setup")
@@ -24,11 +25,6 @@ COMMANDS_STAGE_1 = [
     (["uv", "pip", "install", "-r", "requirements.txt"], {"UV_PYTHON_INSTALL_DIR": "/opt/uv-python"}),
     (["apt-get", "install", "-y", "postgresql", "postgresql-contrib"], None),
 ]
-
-#not installing venv twice
-if Path(".venv").exists():
-    for i in range(3):
-        COMMANDS_STAGE_1.pop(0)
 
 COMMANDS_STAGE_3 = [
     "systemctl enable catuserbot.service",
@@ -238,6 +234,10 @@ if __name__ == "__main__":
     if os.getegid() != 0:
         logger.info("Use sudo to run this script,\nthis script makes a new service thats why sudo permission is essential.\nCheck install_as_service.py and _install_checker.py if you are concerned about security.\nThank you!")
     else:
+        #not installing venv twice
+        if Path(".venv").exists() and sys.argv[1] != "--force":
+            for i in range(3):
+                COMMANDS_STAGE_1.pop(0)
         main()
 
 #End of the universe :)
