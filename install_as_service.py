@@ -47,9 +47,9 @@ def setup_database(db_name="catuserbot", user="postgres", env_file=".env"):
         db_exists = result.stdout.strip() == "1"
 
         if db_exists:
-            print(f"\nDatabase '{db_name}' already exists.")
-            print("  [1] Keep existing database and continue")
-            print("  [2] Drop and recreate (ALL DATA WILL BE LOST)")
+            logger.info(f"\nDatabase '{db_name}' already exists.")
+            logger.info("  [1] Keep existing database and continue")
+            logger.info("  [2] Drop and recreate (ALL DATA WILL BE LOST)")
             choice = input("Enter choice (1/2): ").strip()
 
             if choice == "2":
@@ -231,7 +231,7 @@ def main():
 # Entry point
 if __name__ == "__main__":
     if os.getegid() != 0:
-        print("Use sudo to run this script,\nthis script makes a new service thats why sudo permission is essential.\nCheck install_as_service.py and _install_checker.py if you are concerned about security.\nThank you!")
+        logger.info("Use sudo to run this script,\nthis script makes a new service thats why sudo permission is essential.\nCheck install_as_service.py and _install_checker.py if you are concerned about security.\nThank you!")
     else:
         main()
 
