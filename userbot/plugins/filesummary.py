@@ -170,19 +170,16 @@ async def _(event):  # sourcery no-metrics  # sourcery skip: low-code-quality
             time=5,
             parse_mode="HTML",
         )
-
+    
     if type(chatdata).__name__ == "Channel":
         if chatdata.username:
             link = f"<a href='t.me/{chatdata.username}'>{chatdata.title}</a>"
         else:
             link = chatdata.title
-    else:
+    elif type(chatdata).__name__ == "Chat":
+        link = chatdata.title
+    elif type(chatdata).__name__ == "User":
         link = f"<a href='tg://user?id={chatdata.id}'>{chatdata.first_name}</a>"
-    catevent = await edit_or_reply(
-        event,
-        f"<code>Counting files and file size by </code>{_format.htmlmentionuser(userdata.first_name, userdata.id)}<code> in Group </code><b>{link}</b>\n<code>This may take some time also depends on number of user messages</code>",
-        parse_mode="HTML",
-    )
 
     media_dict = {m: {"file_size": 0, "count": 0, "max_size": 0, "max_file_link": ""} for m in TYPES}
     async for message in event.client.iter_messages(entity=entity, limit=None, from_user=userentity):
@@ -191,12 +188,12 @@ async def _(event):  # sourcery no-metrics  # sourcery skip: low-code-quality
         if media is not None:
             media_dict[media]["file_size"] += message.file.size
             media_dict[media]["count"] += 1
-            if message.file.size > media_dict[media]["max_size"]:
-                media_dict[media]["max_size"] = message.file.size
-                if type(chatdata).__name__ == "Channel":
-                    media_dict[media]["max_file_link"] = f"https://t.me/c/{chatdata.id}/{message.id}"
-                else:
-                    media_dict[media]["max_file_link"] = f"tg://openmessage?user_id={chatdata.id}&message_id={message.id}"
+            if type(chatdata).__name__ == "Channel":
+                media_dict[media]["max_file_link"] = f"https://t.me/c/{chatdata.id}/{message.id}"
+            elif type(chatdata).__name__ == "Chat":
+                media_dict[media]["max_file_link"] = f"https://t.me/c/{chatdata.id}/{message.id}"
+            else:
+                media_dict[media]["max_file_link"] = f"tg://openmessage?user_id={chatdata.id}&message_id={message.id}"
             totalsize += message.file.size
             totalcount += 1
     for mediax in TYPES:
@@ -225,4 +222,4 @@ async def _(event):  # sourcery no-metrics  # sourcery skip: low-code-quality
     result += f"<code>{x}</code>\n"
     result += f"{largest}"
     result += line + totalstring + line + runtimestring + line
-    await catevent.edit(result, parse_mode="HTML", link_preview=False)
+    await event.edit(result, parse_mode="HTML", link_preview=False)

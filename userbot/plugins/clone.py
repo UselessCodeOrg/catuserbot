@@ -43,11 +43,11 @@ async def _(event):
     await event.client(functions.account.UpdateProfileRequest(first_name=first_name))
     await event.client(functions.account.UpdateProfileRequest(last_name=last_name))
     await event.client(functions.account.UpdateProfileRequest(about=user_bio))
-    try:
-        pfile = await event.client.upload_file(profile_pic)
-    except Exception as e:
-        return await edit_delete(event, f"**Failed to clone due to error:**\n__{e}__")
-    await event.client(functions.photos.UploadProfilePhotoRequest(pfile))
+    await event.client(
+        functions.photos.UploadProfilePhotoRequest(
+            file = await event.client.upload_file(str(profile_pic))
+        )
+    )
     await edit_delete(event, "**LET US BE AS ONE**")
     if BOTLOG:
         await event.client.send_message(
